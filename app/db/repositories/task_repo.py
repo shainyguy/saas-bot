@@ -1,13 +1,10 @@
 # app/db/repositories/task_repo.py
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from uuid import UUID
 
-from app.db.models import Task, TaskStatus
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from app.db.models import Task
 
 
 class TaskRepository:
@@ -33,10 +30,10 @@ class TaskRepository:
             is_recurring=bool(cron_expression),
             payload=payload or {},
             next_run_at=next_run_at,
+            status="pending",
         )
         self.session.add(task)
         await self.session.flush()
-        logger.info(f"Task created: {task.id} for user {user_id}")
         return task
 
     async def get_pending_tasks(self, limit: int = 100) -> list[Task]:
@@ -44,7 +41,7 @@ class TaskRepository:
         stmt = (
             select(Task)
             .where(
-                Task.status == TaskStatus.PENDING,
+                Task.status == "pending",
                 Task.next_run_at <= now,
             )
             .order_by(Task.next_run_at)
@@ -57,14 +54,14 @@ class TaskRepository:
         await self.session.execute(
             update(Task)
             .where(Task.id == task_id)
-            .values(status=TaskStatus.RUNNING, last_run_at=datetime.now(timezone.utc))
+            .values(status="running", last_run_at=datetime.now(timezone.utc))
         )
 
     async def mark_completed(self, task_id: UUID, result: dict | None = None) -> None:
         await self.session.execute(
             update(Task)
             .where(Task.id == task_id)
-            .values(status=TaskStatus.COMPLETED, result=result)
+            .values(status="completed", result=result)
         )
 
     async def mark_failed(self, task_id: UUID, error: str) -> None:
@@ -74,9 +71,9 @@ class TaskRepository:
         if task:
             task.retry_count += 1
             if task.retry_count >= task.max_retries:
-                task.status = TaskStatus.FAILED
+                task.status = "failed"
             else:
-                task.status = TaskStatus.PENDING
+                task.status = "pending"
             task.result = {"error": error}
 
     async def get_user_tasks(
@@ -93,7 +90,6 @@ class TaskRepository:
         return list(result.scalars().all())
 
     async def count_user_tasks(self, user_id: int) -> int:
-        from sqlalchemy import func
         stmt = select(func.count(Task.id)).where(Task.user_id == user_id)
         result = await self.session.execute(stmt)
         return result.scalar() or 0

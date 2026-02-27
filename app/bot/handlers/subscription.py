@@ -1,6 +1,6 @@
 # app/bot/handlers/subscription.py
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 
 from app.bot.keyboards.inline import subscription_keyboard
@@ -19,15 +19,19 @@ router = Router()
 async def show_subscription(event: Message | CallbackQuery):
     user_id = event.from_user.id
 
-    # Получить текущую подписку
     async with Database.session() as session:
         sub_repo = SubscriptionRepository(session)
         current_sub = await sub_repo.get_active(user_id)
 
     if current_sub:
-        plan_name = current_sub.plan.upper()
-        status = current_sub.status.value
-        expires = current_sub.expires_at.strftime("%d.%m.%Y %H:%M") if current_sub.expires_at else "∞"
+        # status и plan — уже строки, НЕ enum
+        plan_name = current_sub.plan.upper() if current_sub.plan else "FREE"
+        status = current_sub.status if current_sub.status else "unknown"
+        expires = ""
+        if current_sub.expires_at:
+            expires = current_sub.expires_at.strftime("%d.%m.%Y %H:%M")
+        else:
+            expires = "∞"
 
         text = (
             f"💎 <b>Ваша подписка</b>\n\n"
@@ -61,7 +65,6 @@ async def process_subscribe(callback: CallbackQuery):
     plan_str = callback.data.split(":")[1]
     user_id = callback.from_user.id
 
-    # Админ — бесплатно
     if user_id in settings.admin_ids_set:
         async with Database.session() as session:
             sub_repo = SubscriptionRepository(session)
@@ -70,29 +73,26 @@ async def process_subscribe(callback: CallbackQuery):
         await callback.message.edit_text(
             f"👑 Подписка <b>{plan_str.upper()}</b> активирована (Admin)."
         )
-        await callback.answer("✅ Активировано!")
+        await callback.answer("Активировано!")
         return
 
     try:
         plan = PlanType(plan_str)
         result = await PaymentService.create_payment(user_id, plan)
 
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💳 Оплатить", url=result["confirmation_url"])],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="subscription_menu")],
         ])
 
         await callback.message.edit_text(
-            f"💳 <b>Оплата подписки {plan.value.upper()}</b>\n\n"
+            f"💳 <b>Оплата подписки {plan_str.upper()}</b>\n\n"
             f"Сумма: <b>{result['amount']:.0f}₽</b>\n\n"
-            f"Нажмите кнопку ниже для оплаты через ЮKassa:",
+            f"Нажмите кнопку для оплаты:",
             reply_markup=kb,
         )
     except Exception as e:
-        logger.error(f"Payment creation error: {e}")
-        await callback.message.edit_text(
-            "❌ Ошибка при создании платежа. Попробуйте позже."
-        )
+        logger.error(f"Payment error: {e}")
+        await callback.message.edit_text("❌ Ошибка платежа. Попробуйте позже.")
 
     await callback.answer()

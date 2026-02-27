@@ -7,6 +7,7 @@ aiohttp==3.10.11
 # ── Database ──
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
+psycopg2-binary==2.9.9
 alembic==1.14.0
 
 # ── Redis ──
@@ -39,6 +40,3 @@ orjson==3.10.12
 Pillow==11.0.0
 aiofiles==24.1.0
 tenacity==9.0.0
-
-# ── Performance (опционально, может не собраться на некоторых платформах) ──
-# uvloop ставим отдельно, чтобы его отсутствие не ломало весь pip install

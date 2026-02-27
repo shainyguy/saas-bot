@@ -1,7 +1,7 @@
 # app/db/models.py
 from sqlalchemy import (
     Column, BigInteger, String, Boolean, DateTime, Text,
-    ForeignKey, Numeric, Integer, Enum as SAEnum, Index,
+    ForeignKey, Numeric, Integer, Enum as SAEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
 from sqlalchemy.orm import relationship
@@ -55,20 +55,16 @@ class User(Base):
     first_name = Column(String(255))
     last_name = Column(String(255))
     language_code = Column(String(10), default="ru")
-    role = Column(SAEnum(UserRole), default=UserRole.USER)
+    role = Column(String(20), default="user")
     is_blocked = Column(Boolean, default=False)
     referral_code = Column(String(32), unique=True)
-    referred_by = Column(BigInteger, ForeignKey("users.telegram_id"))
+    referred_by = Column(BigInteger)
     ai_requests_today = Column(Integer, default=0)
     ai_requests_reset_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     subscriptions = relationship("Subscription", back_populates="user", lazy="selectin")
-    payments = relationship("Payment", back_populates="user")
-    channels = relationship("Channel", back_populates="user")
-    posts = relationship("Post", back_populates="user")
-    tasks = relationship("Task", back_populates="user")
 
 
 class Subscription(Base):
@@ -77,7 +73,7 @@ class Subscription(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_lib.uuid4)
     user_id = Column(BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"))
     plan = Column(String(20), default="free")
-    status = Column(SAEnum(SubscriptionStatus), default=SubscriptionStatus.TRIAL)
+    status = Column(String(20), default="trial")
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True))
     trial_ends_at = Column(DateTime(timezone=True))
@@ -98,14 +94,12 @@ class Payment(Base):
     yukassa_payment_id = Column(String(255), unique=True)
     amount = Column(Numeric(10, 2), nullable=False)
     currency = Column(String(3), default="RUB")
-    status = Column(SAEnum(PaymentStatus), default=PaymentStatus.PENDING)
+    status = Column(String(20), default="pending")
     plan = Column(String(20), nullable=False)
     description = Column(Text)
     metadata_ = Column("metadata", JSONB, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     confirmed_at = Column(DateTime(timezone=True))
-
-    user = relationship("User", back_populates="payments")
 
 
 class Channel(Base):
@@ -121,8 +115,6 @@ class Channel(Base):
     instagram_account_id = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User", back_populates="channels")
-
 
 class Post(Base):
     __tablename__ = "posts"
@@ -132,7 +124,7 @@ class Post(Base):
     channel_id = Column(BigInteger, ForeignKey("channels.id", ondelete="SET NULL"))
     content = Column(Text, nullable=False)
     media_urls = Column(JSONB, default=[])
-    status = Column(SAEnum(PostStatus), default=PostStatus.DRAFT)
+    status = Column(String(20), default="draft")
     scheduled_at = Column(DateTime(timezone=True))
     published_at = Column(DateTime(timezone=True))
     platforms = Column(JSONB, default=["telegram"])
@@ -143,8 +135,6 @@ class Post(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="posts")
-
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -154,7 +144,7 @@ class Task(Base):
     title = Column(String(500), nullable=False)
     description = Column(Text)
     task_type = Column(String(100), nullable=False)
-    status = Column(SAEnum(TaskStatus), default=TaskStatus.PENDING)
+    status = Column(String(20), default="pending")
     cron_expression = Column(String(100))
     is_recurring = Column(Boolean, default=False)
     payload = Column(JSONB, default={})
@@ -165,8 +155,6 @@ class Task(Base):
     last_run_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    user = relationship("User", back_populates="tasks")
 
 
 class AutomationTrigger(Base):
@@ -209,5 +197,5 @@ class AuditLog(Base):
     entity_type = Column(String(100))
     entity_id = Column(String(255))
     details = Column(JSONB, default={})
-    ip_address = Column(INET)
+    ip_address = Column(String(50))
     created_at = Column(DateTime(timezone=True), server_default=func.now())

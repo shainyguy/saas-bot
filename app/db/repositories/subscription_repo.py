@@ -4,11 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
-from app.db.models import Subscription, SubscriptionStatus
+from app.db.models import Subscription
 from app.config import PlanType, PlanLimits, settings
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 class SubscriptionRepository:
@@ -21,15 +18,14 @@ class SubscriptionRepository:
 
         sub = Subscription(
             user_id=user_id,
-            plan=PlanType.STARTER.value,
-            status=SubscriptionStatus.TRIAL,
+            plan="starter",
+            status="trial",
             started_at=now,
             trial_ends_at=trial_end,
             expires_at=trial_end,
         )
         self.session.add(sub)
         await self.session.flush()
-        logger.info(f"Trial subscription created for user {user_id}")
         return sub
 
     async def get_active(self, user_id: int) -> Subscription | None:
@@ -37,10 +33,7 @@ class SubscriptionRepository:
             select(Subscription)
             .where(
                 Subscription.user_id == user_id,
-                Subscription.status.in_([
-                    SubscriptionStatus.ACTIVE,
-                    SubscriptionStatus.TRIAL,
-                ]),
+                Subscription.status.in_(["active", "trial"]),
             )
             .order_by(Subscription.created_at.desc())
             .limit(1)
@@ -60,38 +53,30 @@ class SubscriptionRepository:
             update(Subscription)
             .where(
                 Subscription.user_id == user_id,
-                Subscription.status.in_([
-                    SubscriptionStatus.ACTIVE,
-                    SubscriptionStatus.TRIAL,
-                ]),
+                Subscription.status.in_(["active", "trial"]),
             )
-            .values(status=SubscriptionStatus.EXPIRED)
+            .values(status="expired")
         )
 
         now = datetime.now(timezone.utc)
         sub = Subscription(
             user_id=user_id,
             plan=plan.value,
-            status=SubscriptionStatus.ACTIVE,
+            status="active",
             started_at=now,
             expires_at=now + timedelta(days=duration_days),
             yukassa_subscription_id=yukassa_id,
         )
         self.session.add(sub)
         await self.session.flush()
-        logger.info(f"Subscription activated: user={user_id}, plan={plan.value}")
         return sub
 
     async def check_and_expire(self) -> list[int]:
-        """Проверить и деактивировать истекшие подписки. Вернуть user_ids."""
         now = datetime.now(timezone.utc)
         stmt = (
             select(Subscription)
             .where(
-                Subscription.status.in_([
-                    SubscriptionStatus.ACTIVE,
-                    SubscriptionStatus.TRIAL,
-                ]),
+                Subscription.status.in_(["active", "trial"]),
                 Subscription.expires_at <= now,
             )
         )
@@ -100,11 +85,9 @@ class SubscriptionRepository:
 
         user_ids = []
         for sub in expired:
-            sub.status = SubscriptionStatus.EXPIRED
+            sub.status = "expired"
             user_ids.append(sub.user_id)
 
-        if user_ids:
-            logger.info(f"Expired {len(user_ids)} subscriptions")
         return user_ids
 
     async def get_plan_limits(self, user_id: int) -> dict:

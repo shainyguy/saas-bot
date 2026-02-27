@@ -2,7 +2,13 @@
 import asyncio
 import sys
 
-import uvloop
+# uvloop — опциональный, работаем и без него
+try:
+    import uvloop
+    HAS_UVLOOP = True
+except ImportError:
+    HAS_UVLOOP = False
+
 from aiohttp import web
 
 from app.config import settings
@@ -31,13 +37,13 @@ async def on_startup(app: web.Application):
 
     # Database
     await Database.initialize()
-    logger.info("✅ Database connected")
+    logger.info("Database connected")
 
     # Redis
     await RedisCache.initialize()
-    logger.info("✅ Redis connected")
+    logger.info("Redis connected")
 
-    # Register middlewares (порядок важен)
+    # Register middlewares
     dp.message.middleware(ThrottlingMiddleware(rate_limit=10, window=10))
     dp.message.middleware(AuthMiddleware())
     dp.callback_query.middleware(AuthMiddleware())
@@ -52,7 +58,7 @@ async def on_startup(app: web.Application):
 
     # Scheduler
     setup_scheduler()
-    logger.info("✅ Scheduler started")
+    logger.info("Scheduler started")
 
     # Webhook
     if settings.BOT_WEBHOOK_URL:
@@ -61,19 +67,17 @@ async def on_startup(app: web.Application):
             url=webhook_url,
             drop_pending_updates=True,
         )
-        logger.info(f"✅ Webhook set: {webhook_url}")
+        logger.info(f"Webhook set: {webhook_url}")
 
-        # Добавить обработчик вебхука в aiohttp
         from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
         webhook_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
         webhook_handler.register(app, path=settings.BOT_WEBHOOK_PATH)
         setup_application(app, dp, bot=bot)
     else:
-        # Polling mode (dev)
         asyncio.create_task(dp.start_polling(bot, drop_pending_updates=True))
-        logger.info("✅ Polling started")
+        logger.info("Polling started")
 
-    logger.info("🚀 SaaS Bot fully started!")
+    logger.info("SaaS Bot fully started!")
 
 
 async def on_shutdown(app: web.Application):
@@ -87,12 +91,16 @@ async def on_shutdown(app: web.Application):
     await bot.session.close()
     await RedisCache.close()
     await Database.close()
-    logger.info("👋 Shutdown complete")
+    logger.info("Shutdown complete")
 
 
 def main():
-    if sys.platform != "win32":
+    # Установить uvloop только если доступен и не Windows
+    if HAS_UVLOOP and sys.platform != "win32":
         uvloop.install()
+        logger.info("uvloop installed as event loop policy")
+    else:
+        logger.info("Running with default asyncio event loop")
 
     # Создать aiohttp приложение
     app = create_app()

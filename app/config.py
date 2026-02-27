@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
 
     # === Redis ===
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = ""
 
     # === ЮKassa ===
     YUKASSA_SHOP_ID: str = ""
@@ -133,6 +133,7 @@ class Settings(BaseSettings):
     @property
     def admin_ids_set(self) -> set[int]:
         return set(self.ADMIN_IDS)
+
 
 
 settings = Settings()

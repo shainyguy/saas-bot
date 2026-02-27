@@ -1,0 +1,236 @@
+/* app/webapp/static/style.css */
+:root {
+    --bg-primary: var(--tg-theme-bg-color, #1a1a2e);
+    --bg-secondary: var(--tg-theme-secondary-bg-color, #16213e);
+    --text-primary: var(--tg-theme-text-color, #e0e0e0);
+    --text-hint: var(--tg-theme-hint-color, #888);
+    --accent: var(--tg-theme-button-color, #6c63ff);
+    --accent-text: var(--tg-theme-button-text-color, #fff);
+    --link: var(--tg-theme-link-color, #6c63ff);
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding-bottom: 20px;
+}
+
+#app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 12px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+}
+
+.header h1 {
+    font-size: 20px;
+}
+
+.badge {
+    background: var(--accent);
+    color: var(--accent-text);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tab {
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    color: var(--text-hint);
+    border: none;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab.active {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Stats */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-hint);
+    margin-top: 4px;
+}
+
+/* Sections */
+.section {
+    margin-bottom: 20px;
+}
+
+.section h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+/* List Items */
+.list-item {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+}
+
+.list-item .title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.list-item .meta {
+    font-size: 12px;
+    color: var(--text-hint);
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: var(--text-hint);
+}
+
+textarea, input[type="datetime-local"] {
+    width: 100%;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 14px;
+    resize: vertical;
+}
+
+textarea:focus, input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 16px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn.primary {
+    background: var(--accent);
+    color: var(--accent-text);
+}
+
+/* Subscription */
+.subscription-card {
+    background: linear-gradient(135deg, var(--accent), #4a45b0);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    color: white;
+}
+
+.limits-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.limit-item {
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 13px;
+}
+
+.limit-item .limit-name {
+    color: var(--text-hint);
+    margin-bottom: 4px;
+}
+
+.limit-item .limit-value {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 360px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}

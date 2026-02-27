@@ -1,0 +1,23 @@
+# requirements.txt
+aiogram==3.13.1
+aiohttp==3.10.11
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+redis[hiredis]==5.2.1
+aioredis==2.0.1
+apscheduler==3.10.4
+pydantic==2.10.3
+pydantic-settings==2.7.0
+yookassa==3.4.0
+httpx==0.28.1
+python-jose[cryptography]==3.3.0
+google-api-python-client==2.155.0
+google-auth-oauthlib==1.2.1
+gspread==6.1.4
+structlog==24.4.0
+uvloop==0.21.0
+orjson==3.10.12
+Pillow==11.0.0
+aiofiles==24.1.0
+tenacity==9.0.0

@@ -1,0 +1,102 @@
+<!-- app/webapp/static/index.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Bot Dashboard</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>📊 Dashboard</h1>
+            </div>
+            <div class="header-right">
+                <span id="plan-badge" class="badge">Free</span>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="overview">📊 Обзор</button>
+            <button class="tab" data-tab="posts">📝 Посты</button>
+            <button class="tab" data-tab="tasks">⚙️ Задачи</button>
+            <button class="tab" data-tab="subscription">💎 Подписка</button>
+        </nav>
+
+        <!-- Overview -->
+        <section id="tab-overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-posts">—</div>
+                    <div class="stat-label">Постов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-published">—</div>
+                    <div class="stat-label">Опубликовано</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-tasks">—</div>
+                    <div class="stat-label">Задач</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📝 Последние посты</h3>
+                <div id="recent-posts" class="list"></div>
+            </div>
+
+            <div class="section">
+                <h3>⚙️ Активные задачи</h3>
+                <div id="recent-tasks" class="list"></div>
+            </div>
+        </section>
+
+        <!-- New Post -->
+        <section id="tab-posts" class="tab-content">
+            <h3>✍️ Создать пост</h3>
+            <form id="post-form">
+                <div class="form-group">
+                    <label>Текст поста</label>
+                    <textarea id="post-content" rows="6"
+                        placeholder="Введите текст поста..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Дата публикации</label>
+                    <input type="datetime-local" id="post-schedule">
+                </div>
+                <div class="form-group">
+                    <label>Платформы</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" value="telegram" checked> Telegram</label>
+                        <label><input type="checkbox" value="vk"> VK</label>
+                        <label><input type="checkbox" value="instagram"> Instagram</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn primary">📤 Запланировать</button>
+            </form>
+        </section>
+
+        <!-- Tasks -->
+        <section id="tab-tasks" class="tab-content">
+            <h3>📋 Мои задачи</h3>
+            <div id="tasks-list" class="list"></div>
+        </section>
+
+        <!-- Subscription -->
+        <section id="tab-subscription" class="tab-content">
+            <div id="sub-info" class="subscription-card">
+                <h3>💎 Текущий план</h3>
+                <div id="sub-details"></div>
+            </div>
+            <div class="limits-grid" id="limits-grid"></div>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

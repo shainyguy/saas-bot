@@ -2,7 +2,6 @@
 import asyncio
 import sys
 
-# uvloop — опциональный, работаем и без него
 try:
     import uvloop
     HAS_UVLOOP = True
@@ -36,12 +35,22 @@ async def on_startup(app: web.Application):
     logger.info("Starting SaaS Bot...")
 
     # Database
-    await Database.initialize()
-    logger.info("Database connected")
+    try:
+        await Database.initialize()
+        logger.info("✅ Database connected")
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {e}")
+        raise  # БД обязательна
 
-    # Redis
-    await RedisCache.initialize()
-    logger.info("Redis connected")
+    # Redis — опционально
+    try:
+        await RedisCache.initialize()
+        if RedisCache.is_available():
+            logger.info("✅ Redis connected")
+        else:
+            logger.warning("⚠️ Redis unavailable — running without cache")
+    except Exception as e:
+        logger.warning(f"⚠️ Redis init error: {e} — running without cache")
 
     # Register middlewares
     dp.message.middleware(ThrottlingMiddleware(rate_limit=10, window=10))
@@ -57,8 +66,11 @@ async def on_startup(app: web.Application):
     dp.include_router(automation.router)
 
     # Scheduler
-    setup_scheduler()
-    logger.info("Scheduler started")
+    try:
+        setup_scheduler()
+        logger.info("✅ Scheduler started")
+    except Exception as e:
+        logger.warning(f"⚠️ Scheduler failed: {e}")
 
     # Webhook
     if settings.BOT_WEBHOOK_URL:
@@ -67,47 +79,59 @@ async def on_startup(app: web.Application):
             url=webhook_url,
             drop_pending_updates=True,
         )
-        logger.info(f"Webhook set: {webhook_url}")
+        logger.info(f"✅ Webhook set: {webhook_url}")
 
-        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+        from aiogram.webhook.aiohttp_server import (
+            SimpleRequestHandler,
+            setup_application,
+        )
         webhook_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
         webhook_handler.register(app, path=settings.BOT_WEBHOOK_PATH)
         setup_application(app, dp, bot=bot)
     else:
         asyncio.create_task(dp.start_polling(bot, drop_pending_updates=True))
-        logger.info("Polling started")
+        logger.info("✅ Polling started")
 
-    logger.info("SaaS Bot fully started!")
+    logger.info("🚀 SaaS Bot fully started!")
 
 
 async def on_shutdown(app: web.Application):
     """Очистка при остановке."""
     logger.info("Shutting down...")
-    scheduler.shutdown(wait=False)
+
+    try:
+        scheduler.shutdown(wait=False)
+    except Exception:
+        pass
 
     if settings.BOT_WEBHOOK_URL:
-        await bot.delete_webhook()
+        try:
+            await bot.delete_webhook()
+        except Exception:
+            pass
 
-    await bot.session.close()
+    try:
+        await bot.session.close()
+    except Exception:
+        pass
+
     await RedisCache.close()
     await Database.close()
-    logger.info("Shutdown complete")
+    logger.info("👋 Shutdown complete")
 
 
 def main():
-    # Установить uvloop только если доступен и не Windows
     if HAS_UVLOOP and sys.platform != "win32":
         uvloop.install()
-        logger.info("uvloop installed as event loop policy")
+        logger.info("uvloop installed")
     else:
-        logger.info("Running with default asyncio event loop")
+        logger.info("Using default asyncio event loop")
 
-    # Создать aiohttp приложение
     app = create_app()
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 
-    logger.info(f"Starting server on {settings.APP_HOST}:{settings.APP_PORT}")
+    logger.info(f"Starting on {settings.APP_HOST}:{settings.APP_PORT}")
     web.run_app(
         app,
         host=settings.APP_HOST,

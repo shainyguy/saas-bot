@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --user -r requirements.txt
+    pip install --no-cache-dir --user -r requirements.txt && \
+    pip install --no-cache-dir --user uvloop==0.21.0 || echo "uvloop not available, skipping"
 
 FROM python:3.11-slim
 
@@ -24,9 +25,6 @@ COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
 COPY . .
-
-RUN adduser --disabled-password --gecos '' appuser
-USER appuser
 
 EXPOSE 8080
 

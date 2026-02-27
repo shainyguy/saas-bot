@@ -11,9 +11,6 @@ from app.services.payments.yukassa import PaymentService
 from app.services.cache.redis_cache import RedisCache
 from app.services.integrations.crm_webhook import CRMWebhookService
 from app.config import settings
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 def json_response(data: dict, status: int = 200) -> web.Response:
@@ -24,23 +21,14 @@ def json_response(data: dict, status: int = 200) -> web.Response:
     )
 
 
-async def health_check(request: web.Request) -> web.Response:
-    return json_response({"status": "ok", "service": "saas-bot"})
-
-
-# === WEBAPP API ===
-
 async def webapp_auth(request: web.Request) -> int | None:
-    """Аутентификация запроса из Mini App."""
     auth_header = request.headers.get("Authorization", "")
-
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
         user_id = verify_api_token(token)
         if user_id:
             return user_id
 
-    # Fallback: Telegram WebApp init data
     init_data = request.headers.get("X-Telegram-Init-Data", "")
     if init_data:
         user_data = validate_webapp_data(init_data)
@@ -55,7 +43,6 @@ async def api_dashboard(request: web.Request) -> web.Response:
     if not user_id:
         return json_response({"error": "Unauthorized"}, 401)
 
-    # Собрать данные дашборда
     async with Database.session() as session:
         sub_repo = SubscriptionRepository(session)
         sub = await sub_repo.get_active(user_id)
@@ -70,15 +57,15 @@ async def api_dashboard(request: web.Request) -> web.Response:
     return json_response({
         "subscription": {
             "plan": sub.plan if sub else "free",
-            "status": sub.status.value if sub else "none",
+            "status": sub.status if sub else "none",
             "expires_at": sub.expires_at.isoformat() if sub and sub.expires_at else None,
         },
         "limits": limits,
         "recent_posts": [
             {
                 "id": str(p.id),
-                "content": p.content[:100],
-                "status": p.status.value,
+                "content": p.content[:100] if p.content else "",
+                "status": p.status or "draft",
                 "scheduled_at": p.scheduled_at.isoformat() if p.scheduled_at else None,
             }
             for p in posts
@@ -86,9 +73,9 @@ async def api_dashboard(request: web.Request) -> web.Response:
         "recent_tasks": [
             {
                 "id": str(t.id),
-                "title": t.title,
-                "status": t.status.value,
-                "type": t.task_type,
+                "title": t.title or "",
+                "status": t.status or "pending",
+                "type": t.task_type or "",
             }
             for t in tasks
         ],
@@ -102,7 +89,7 @@ async def api_create_post(request: web.Request) -> web.Response:
 
     data = await request.json()
     content = data.get("content", "")
-    scheduled_at = data.get("scheduled_at")
+    scheduled_at_str = data.get("scheduled_at")
     platforms = data.get("platforms", ["telegram"])
 
     if not content:
@@ -110,8 +97,8 @@ async def api_create_post(request: web.Request) -> web.Response:
 
     from datetime import datetime
     schedule_dt = None
-    if scheduled_at:
-        schedule_dt = datetime.fromisoformat(scheduled_at)
+    if scheduled_at_str:
+        schedule_dt = datetime.fromisoformat(scheduled_at_str)
 
     async with Database.session() as session:
         repo = PostRepository(session)
@@ -124,8 +111,7 @@ async def api_create_post(request: web.Request) -> web.Response:
 
     return json_response({
         "id": str(post.id),
-        "status": post.status.value,
-        "scheduled_at": schedule_dt.isoformat() if schedule_dt else None,
+        "status": post.status or "draft",
     }, 201)
 
 
@@ -138,53 +124,48 @@ async def api_analytics(request: web.Request) -> web.Response:
     if cached:
         return json_response(cached)
 
-    async with Database.session() as session:
-        from sqlalchemy import func, select
-        from app.db.models import Post, PostStatus, Task
+    try:
+        async with Database.session() as session:
+            from sqlalchemy import func, select
+            from app.db.models import Post, Task
 
-        posts_count = (await session.execute(
-            select(func.count(Post.id)).where(Post.user_id == user_id)
-        )).scalar() or 0
+            posts_count = (await session.execute(
+                select(func.count(Post.id)).where(Post.user_id == user_id)
+            )).scalar() or 0
 
-        published = (await session.execute(
-            select(func.count(Post.id)).where(
-                Post.user_id == user_id,
-                Post.status == PostStatus.PUBLISHED,
-            )
-        )).scalar() or 0
+            published = (await session.execute(
+                select(func.count(Post.id)).where(
+                    Post.user_id == user_id,
+                    Post.status == "published",
+                )
+            )).scalar() or 0
 
-        tasks_count = (await session.execute(
-            select(func.count(Task.id)).where(Task.user_id == user_id)
-        )).scalar() or 0
+            tasks_count = (await session.execute(
+                select(func.count(Task.id)).where(Task.user_id == user_id)
+            )).scalar() or 0
 
-    analytics = {
-        "total_posts": posts_count,
-        "published_posts": published,
-        "total_tasks": tasks_count,
-    }
+        analytics = {
+            "total_posts": posts_count,
+            "published_posts": published,
+            "total_tasks": tasks_count,
+        }
 
-    await RedisCache.set(f"analytics:user:{user_id}", analytics, ttl=300)
-    return json_response(analytics)
+        await RedisCache.set(f"analytics:user:{user_id}", analytics, ttl=300)
+        return json_response(analytics)
+    except Exception:
+        return json_response({"total_posts": 0, "published_posts": 0, "total_tasks": 0})
 
-
-# === PAYMENT WEBHOOK ===
 
 async def yukassa_webhook(request: web.Request) -> web.Response:
     try:
         data = await request.json()
-        logger.info("YuKassa webhook received", event=data.get("event"))
-
         success = await PaymentService.process_webhook(data)
         if success:
             return json_response({"status": "ok"})
         return json_response({"status": "error"}, 400)
-
     except Exception as e:
-        logger.error(f"YuKassa webhook error: {e}")
-        return json_response({"status": "error"}, 500)
+        return json_response({"status": "error", "message": str(e)}, 500)
 
-
-# === CRM WEBHOOK ===
 
 async def crm_webhook(request: web.Request) -> web.Response:
     try:
@@ -192,33 +173,4 @@ async def crm_webhook(request: web.Request) -> web.Response:
         result = await CRMWebhookService.process_incoming_webhook(data)
         return json_response(result)
     except Exception as e:
-        logger.error(f"CRM webhook error: {e}")
         return json_response({"error": str(e)}, 500)
-
-
-# === STATIC FILES (Mini App) ===
-
-async def serve_webapp(request: web.Request) -> web.FileResponse:
-    return web.FileResponse("app/webapp/static/index.html")
-
-
-def create_app() -> web.Application:
-    app = web.Application()
-
-    # Health
-    app.router.add_get("/health", health_check)
-
-    # WebApp API
-    app.router.add_get("/api/dashboard", api_dashboard)
-    app.router.add_post("/api/posts", api_create_post)
-    app.router.add_get("/api/analytics", api_analytics)
-
-    # Webhooks
-    app.router.add_post("/webhook/yukassa", yukassa_webhook)
-    app.router.add_post("/webhook/crm", crm_webhook)
-
-    # Mini App static
-    app.router.add_get("/app", serve_webapp)
-    app.router.add_static("/static/", "app/webapp/static/")
-
-    return app

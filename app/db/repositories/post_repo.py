@@ -4,10 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from app.db.models import Post, PostStatus
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from app.db.models import Post
 
 
 class PostRepository:
@@ -25,7 +22,7 @@ class PostRepository:
         ab_variant: str | None = None,
         ab_group_id: UUID | None = None,
     ) -> Post:
-        status = PostStatus.SCHEDULED if scheduled_at else PostStatus.DRAFT
+        status = "scheduled" if scheduled_at else "draft"
 
         post = Post(
             user_id=user_id,
@@ -61,7 +58,10 @@ class PostRepository:
         now = datetime.now(timezone.utc)
         stmt = (
             select(Post)
-            .where(Post.status == PostStatus.SCHEDULED, Post.scheduled_at <= now)
+            .where(
+                Post.status == "scheduled",
+                Post.scheduled_at <= now,
+            )
             .order_by(Post.scheduled_at)
             .limit(limit)
         )
@@ -73,14 +73,14 @@ class PostRepository:
             update(Post)
             .where(Post.id == post_id)
             .values(
-                status=PostStatus.PUBLISHED,
+                status="published",
                 published_at=datetime.now(timezone.utc),
                 engagement_data=engagement or {},
             )
         )
 
     async def get_user_posts(
-        self, user_id: int, status: PostStatus | None = None,
+        self, user_id: int, status: str | None = None,
         limit: int = 50, offset: int = 0,
     ) -> list[Post]:
         stmt = select(Post).where(Post.user_id == user_id)

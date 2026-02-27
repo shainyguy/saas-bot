@@ -10,9 +10,6 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from app.config import settings
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -38,13 +35,12 @@ class Database:
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        logger.info("Database initialized")
+        print("[DB] Engine created", flush=True)
 
     @classmethod
     async def close(cls) -> None:
         if cls._engine:
             await cls._engine.dispose()
-            logger.info("Database connection closed")
 
     @classmethod
     @asynccontextmanager

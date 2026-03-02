@@ -1,0 +1,1 @@
+# app/bot/middlewares/__init__.py

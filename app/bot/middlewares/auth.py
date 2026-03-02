@@ -6,9 +6,6 @@ from aiogram.types import TelegramObject, Message, CallbackQuery
 from app.db.database import Database
 from app.db.repositories.user_repo import UserRepository
 from app.db.repositories.subscription_repo import SubscriptionRepository
-from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 class AuthMiddleware(BaseMiddleware):
@@ -27,25 +24,32 @@ class AuthMiddleware(BaseMiddleware):
         if not user:
             return await handler(event, data)
 
-        async with Database.session() as session:
-            repo = UserRepository(session)
-            db_user, created = await repo.get_or_create(
-                telegram_id=user.id,
-                username=user.username,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                language_code=user.language_code or "ru",
-            )
+        try:
+            async with Database.session() as session:
+                repo = UserRepository(session)
+                db_user, created = await repo.get_or_create(
+                    telegram_id=user.id,
+                    username=user.username,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    language_code=user.language_code or "ru",
+                )
 
-            if created:
-                sub_repo = SubscriptionRepository(session)
-                await sub_repo.create_trial(user.id)
+                if created:
+                    sub_repo = SubscriptionRepository(session)
+                    await sub_repo.create_trial(user.id)
 
-            if db_user.is_blocked:
-                if isinstance(event, Message):
-                    await event.answer("🚫 Ваш аккаунт заблокирован.")
-                return
+                if db_user.is_blocked:
+                    if isinstance(event, Message):
+                        await event.answer("🚫 Аккаунт заблокирован.")
+                    elif isinstance(event, CallbackQuery):
+                        await event.answer("🚫 Аккаунт заблокирован.", show_alert=True)
+                    return
 
-            data["db_user"] = db_user
+                data["db_user"] = db_user
+        except Exception as e:
+            print(f"[AUTH] Error: {e}", flush=True)
+            # Не блокируем — пропускаем дальше даже при ошибке БД
+            pass
 
         return await handler(event, data)
